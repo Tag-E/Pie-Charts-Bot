@@ -1,53 +1,125 @@
+#!/usr/bin/env python
+
+# pylint: disable=unused-argument
+
+# This program is dedicated to the public domain under the CC0 license.
+
+
+"""
+
+Simple Bot to reply to Telegram messages.
+
+
+First, a few handler functions are defined. Then, those functions are passed to
+
+the Application and registered at their respective places.
+
+Then, the bot is started and runs until we press Ctrl-C on the command line.
+
+
+Usage:
+
+Basic Echobot example, repeats messages.
+
+Press Ctrl-C on the command line or send a signal to the process to stop the
+
+bot.
+
+"""
+
 import os
-from telegram.ext import Updater, CommandHandler
-#import requests
 
-#url = 'YOUR-URL-HERE/GET'
-#data = requests.get(url) # requests data from API
-#data = data.json() # converts return data to json
+import logging
 
-# Retrieve values from API
-#curr_temp = data['curr_temp']
-#cad_rate = data['usd_rates']['CAD']
-#eur_rate = data['usd_rates']['EUR']
-#zar_rate = data['usd_rates']['ZAR']
-#
-#def return_weather():
-#    return 'Hello. The current temperature in Cape Town is: '+str(curr_temp)+' celsius.'
-#
-#def return_rates():
-#    return 'Hello. Today, USD conversion rates are as follows: USD->CAD = '+str(cad_rate)+', USD->EUR = '+str(eur_rate)+', USD->ZAR = '+str(zar_rate)
-#
-#def weather(update, context):
-#    context.bot.send_message(chat_id=update.effective_chat.id, text=return_weather())
-#
-#def currency(update, context):
-#    context.bot.send_message(chat_id=update.effective_chat.id, text=return_rates())
 
-def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text='Hi! I respond to /weather and /currency. Try these!')
+from telegram import ForceReply, Update
 
-def main():
-    TOKEN = os.getenv('BOTAPIKEY')
-    updater = Updater(token=TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
-    #weather_handler = CommandHandler('weather', weather)
-    #currency_handler = CommandHandler('currency', currency)
-    start_handler = CommandHandler('start', start)
 
-    #dispatcher.add_handler(weather_handler)
-    #dispatcher.add_handler(currency_handler)
-    dispatcher.add_handler(start_handler)
+# Enable logging
 
-    #updater.start_polling()
-    PORT = int(os.environ.get('PORT', '443'))
-    MY_HOOK = os.getenv('DEPLOYHOOK')
-    HOOK_URL = MY_HOOK + '/' + TOKEN
-    updater.start_webhook(listen='0.0.0.0', port=PORT, url_path=TOKEN, webhook_url=HOOK_URL)
-    updater.idle()
+logging.basicConfig(
 
-if __name__ == '__main__':
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+
+)
+
+# set higher logging level for httpx to avoid all GET and POST requests being logged
+
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+logger = logging.getLogger(__name__)
+
+
+
+# Define a few command handlers. These usually take the two arguments update and
+
+# context.
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """Send a message when the command /start is issued."""
+
+    user = update.effective_user
+
+    await update.message.reply_html(
+
+        rf"Hi {user.mention_html()}!",
+
+        reply_markup=ForceReply(selective=True),
+
+    )
+
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """Send a message when the command /help is issued."""
+
+    await update.message.reply_text("Help!")
+
+
+
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+
+    """Echo the user message."""
+
+    await update.message.reply_text(update.message.text)
+
+
+
+def main() -> None:
+
+    """Start the bot."""
+
+    # Create the Application and pass it your bot's token.
+
+    TOKEN = os.getenv("BOTAPIKEY")
+
+    application = Application.builder().token(TOKEN).build()
+
+
+    # on different commands - answer in Telegram
+
+    application.add_handler(CommandHandler("start", start))
+
+    application.add_handler(CommandHandler("help", help_command))
+
+
+    # on non command i.e message - echo the message on Telegram
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+
+
+    # Run the bot until the user presses Ctrl-C
+
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+
+if __name__ == "__main__":
+
     main()
-
 
